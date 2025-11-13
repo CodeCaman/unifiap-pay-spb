@@ -126,7 +126,3 @@ O diagrama deve mostrar:
 ![alt text](images/image-20.png)
 
 - Saída do kubectl auth can-i ... provando que a ServiceAccount tem permissão restrita.
-- Rancher Operacional
-- <img width="900" height="1600" alt="image" src="https://github.com/user-attachments/assets/e8af58ab-71a1-46e4-81ff-366db3c05d51" />
-
-- 
