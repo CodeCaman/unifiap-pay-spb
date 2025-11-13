@@ -39,6 +39,8 @@ Network ID: 511728b24c125496b47b4ebe78503257cac83754748521de3f9e95c761cf94b1
 Subnet: 172.25.0.0/24
 Gateway: 172.25.0.1
 ```
+<img width="782" height="780" alt="image" src="https://github.com/user-attachments/assets/7290b528-48b9-452f-825f-9735dcff1a57" />
+
 
 #### Preparar Variáveis de Ambiente
 
