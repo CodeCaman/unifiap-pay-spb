@@ -105,7 +105,57 @@ vulnerabilities │    0C     3H     5M    20L
 
 ### 3.2. Etapa 2: Rede, Comunicação e Segmentação (2,5 pts)
 
-#### Print 1: Variáveis de Ambiente
+#### Print 1: Rede Docker Segmentada (unifiap_net)
+
+**Comando:**
+```powershell
+docker network inspect unifiap_net
+```
+
+```json
+{
+    "Name": "unifiap_net",
+    "Id": "511728b24c125496b47b4ebe78503257cac83754748521de3f9e95c761cf94b1",
+    "Created": "2025-11-13T22:48:51.720011674Z",
+    "Scope": "local",
+    "Driver": "bridge",
+    "EnableIPv4": true,
+    "IPAM": {
+        "Driver": "default",
+        "Config": [
+            {
+                "Subnet": "172.25.0.0/24",
+                "Gateway": "172.25.0.1"
+            }
+        ]
+    }
+}
+```
+
+**✅ Rede customizada criada com subnet 172.25.0.0/24**
+
+---
+
+#### Print 2: Comunicação entre Containers
+
+**Comando:**
+```powershell
+docker ps --filter network=unifiap_net
+docker inspect test-api -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+```
+
+```
+NAMES      STATUS                     PORTS
+test-api   Up 2 minutes (unhealthy)   5000/tcp
+
+IP: 172.25.0.10
+```
+
+**✅ Containers conectados na rede isolada unifiap_net**
+
+---
+
+#### Print 3: Variáveis de Ambiente
 
 **Comando:**
 ```powershell
@@ -120,7 +170,7 @@ INFO - Iniciando API de Pagamentos - Reserva Bancária: R$ 1000000.00
 
 ---
 
-#### Print 2: Comunicação entre Serviços
+#### Print 4: Comunicação entre Serviços (Kubernetes)
 
 **Comando:**
 ```powershell
@@ -132,7 +182,7 @@ kubectl exec -n unifiapay deployment/api-pagamentos-simple -- curl -s http://aud
 
 ---
 
-#### Print 3: Inspeção de Rede
+#### Print 5: Segmentação de Rede (Kubernetes Services)
 
 **Comando:**
 ```powershell
@@ -184,7 +234,28 @@ $PODS = (kubectl get pods -n unifiapay -l app=api-pagamentos -o jsonpath='{.item
 
 ---
 
-#### Print 4: Logs de Auditoria
+#### Print 4: CronJob e Job de Fechamento de Reserva
+
+**Comando:**
+```powershell
+kubectl get cronjob -n unifiapay
+kubectl create job --from=cronjob/cronjob-fechamento-reserva manual-fechamento-test -n unifiapay
+kubectl get job -n unifiapay
+```
+
+```
+NAME                         SCHEDULE      SUSPEND   ACTIVE   LAST SCHEDULE
+cronjob-fechamento-reserva   59 23 * * *   False     0        <none>
+
+NAME                     STATUS     COMPLETIONS   DURATION
+manual-fechamento-test   Complete   1/1           5s
+```
+
+**✅ CronJob configurado para executar diariamente às 23:59**
+
+---
+
+#### Print 5: Logs de Auditoria
 
 **Comando:**
 ```powershell
@@ -198,7 +269,29 @@ kubectl logs -n unifiapay -l app=auditoria-service --tail=20
 
 ### 3.4. Etapa 4: Segurança, Observação e Operação (2,0 pts)
 
-#### Print 1: Resource Limits
+#### Print 1: kubectl top pods (Uso Real de Recursos)
+
+**Comando:**
+```powershell
+kubectl top pods -n unifiapay
+```
+
+```
+NAME                                    CPU(cores)   MEMORY(bytes)   
+api-pagamentos-simple-585777ffd-xj4sq   1m           70Mi
+auditoria-simple-64bcb9f776-fzwkz       1m           40Mi
+frontend-pix-simple-585c99957-9ng4b     0m           13Mi
+grafana-5fb657f4b6-vn24z                6m           204Mi
+kube-state-metrics-598474cd79-dzfml     1m           20Mi
+node-exporter-54d867659c-m4m4h          0m           33Mi
+prometheus-754bc78c6f-g59nq             2m           80Mi
+```
+
+**✅ Métricas de CPU e Memória em tempo real**
+
+---
+
+#### Print 2: Resource Limits (Configuração)
 
 **Comando:**
 ```powershell
@@ -211,7 +304,7 @@ kubectl describe pod -n unifiapay -l app=api-pagamentos | Select-String -Pattern
 
 ---
 
-#### Print 2: Security Context (Non-Root)
+#### Print 3: Security Context (Non-Root)
 
 **Comando:**
 ```powershell
@@ -223,7 +316,59 @@ kubectl get deployment api-pagamentos-simple -n unifiapay -o jsonpath='{.spec.te
 
 ---
 
-#### Print 3: RBAC e Permissões
+#### Print 4: Teste de Deploy Inseguro
+
+**Comando:**
+```powershell
+kubectl apply -f k8s/insecure-pod-test.yaml
+kubectl get pod insecure-pod-test -n unifiapay
+```
+
+```yaml
+# insecure-pod-test.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-pod-test
+spec:
+  containers:
+  - name: insecure-container
+    image: nginx:latest
+    securityContext:
+      privileged: true       # ⚠️ Inseguro
+      runAsUser: 0          # ⚠️ Root
+      allowPrivilegeEscalation: true
+```
+
+```
+NAME                READY   STATUS    RESTARTS   AGE
+insecure-pod-test   1/1     Running   0          32s
+```
+
+**⚠️ Nota:** Pod inseguro foi aceito. Para bloqueio automático, seria necessário configurar **PodSecurityPolicy** ou **Admission Controllers**.
+
+---
+
+#### Print 5: kubectl auth can-i (Permissões Restritas)
+
+**Comando:**
+```powershell
+kubectl auth can-i list pods --as=system:serviceaccount:unifiapay:kube-state-metrics -n unifiapay
+kubectl auth can-i delete namespaces --as=system:serviceaccount:unifiapay:kube-state-metrics
+kubectl auth can-i create secrets --as=system:serviceaccount:unifiapay:kube-state-metrics -n unifiapay
+```
+
+```
+yes  # Pode listar pods (permitido)
+no   # Não pode deletar namespaces (negado)
+no   # Não pode criar secrets (negado)
+```
+
+**✅ ServiceAccount com permissões restritas (princípio do menor privilégio)**
+
+---
+
+#### Print 6: RBAC Configurado
 
 **Comando:**
 ```powershell
@@ -237,7 +382,7 @@ kubectl describe clusterrolebinding kube-state-metrics
 
 ---
 
-#### Print 4: Métricas do Prometheus
+#### Print 8: Métricas do Prometheus
 
 **Acesse:** http://localhost:30090/targets
 
@@ -245,7 +390,7 @@ kubectl describe clusterrolebinding kube-state-metrics
 
 ---
 
-#### Print 5: Dashboard do Grafana
+#### Print 9: Dashboard do Grafana
 
 **Acesse:** (http://localhost:30300/d/unifiap-spb-complete/unifiap-pay-spb-sistema-completo?orgId=1&from=now-15m&to=now&timezone=browser&refresh=5s) (admin/admin)
 
@@ -271,26 +416,37 @@ Dashboard centralizado para acessar funcionalidades:
 ## 4. Checklist de Entrega
 
 ### Etapa 1: Docker e Imagem Segura (1,5 pts)
-- [ ] Print 1: Multi-stage build (linhas [builder] e [stage-1])
-- [ ] Print 2: Push com digest no Docker Hub
-- [ ] Print 3: Docker Scout mostrando 0C (0 CRITICAL)
+- [x] Print 1: Multi-stage build (linhas [builder] e [stage-1])
+- [x] Print 2: Push com digest no Docker Hub
+- [x] Print 3: Docker Scout mostrando 0C (0 CRITICAL)
 
 ### Etapa 2: Rede, Comunicação e Segmentação (2,5 pts)
-- [ ] Print 1: Logs mostrando variável RESERVA_BANCARIA_SALDO
-- [ ] Print 2: Comunicação entre serviços (curl)
-- [ ] Print 3: Lista de services com ClusterIP
+- [x] Print 1: docker inspect unifiap_net (subnet 172.25.0.0/24)
+- [x] Print 2: Containers na rede unifiap_net
+- [x] Print 3: Variável RESERVA_BANCARIA_SALDO nos logs
+- [x] Print 4: Comunicação entre serviços (curl Kubernetes)
+- [x] Print 5: Services com ClusterIP
 
 ### Etapa 3: Kubernetes – Estrutura, Escala e Deploy (3,0 pts)
-- [ ] Print 1: 2 réplicas rodando
-- [ ] Print 2: 3 réplicas rodando
-- [ ] Print 3: 3 pods lendo mesmo arquivo compartilhado
-- [ ] Print 4: Logs de auditoria/liquidação
+- [x] Print 1: 2 réplicas rodando
+- [x] Print 2: 3 réplicas rodando (escalabilidade)
+- [x] Print 3: 3 pods lendo mesmo arquivo compartilhado (volume)
+- [x] Print 4: CronJob e Job de fechamento-reserva
+- [x] Print 5: Logs de auditoria/liquidação
 
 ### Etapa 4: Segurança, Observação e Operação (2,0 pts)
-- [ ] Print 1: Resource limits definidos
-- [ ] Print 2: SecurityContext (runAsNonRoot)
-- [ ] Print 3: RBAC configurado
-- [ ] Print 4: Prometheus targets UP
-- [ ] Print 5: Dashboard Grafana funcionando
+- [x] Print 1: kubectl top pods (uso real de CPU/Memória)
+- [x] Print 2: Resource limits configurados (describe)
+- [x] Print 3: SecurityContext (runAsNonRoot)
+- [x] Print 4: Teste de pod inseguro (sem bloqueio automático)
+- [x] Print 5: kubectl auth can-i (permissões restritas)
+- [x] Print 6: RBAC configurado (clusterrolebinding)
+- [x] Print 7: Prometheus targets UP
+- [x] Print 8: Dashboard Grafana funcionando
+
+### Arquivos de Configuração
+- [x] ./docker/.env com RESERVA_BANCARIA_SALDO
+- [x] ./docker/pix.key com chave de simulação
+- [x] Rede unifiap_net criada (172.25.0.0/24)
 
 ---

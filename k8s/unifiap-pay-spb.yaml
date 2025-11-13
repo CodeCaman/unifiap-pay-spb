@@ -544,3 +544,71 @@ spec:
     targetPort: 9100
     nodePort: 30100
     name: http
+
+---
+# CronJob para Fechamento de Reserva
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-fechamento-reserva
+  namespace: unifiapay
+  labels:
+    app: fechamento-reserva
+    component: batch
+spec:
+  # Executar todo dia às 23:59 (fim do dia útil)
+  schedule: "59 23 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: fechamento-reserva
+            component: batch
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: fechamento-reserva
+            image: renanafs/unifiap-auditoria:v1.93744
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                echo "=== Iniciando Fechamento de Reserva ==="
+                echo "Data/Hora: $(date)"
+                echo "Processando liquidação final do dia..."
+                python -c "
+                import os
+                from datetime import datetime
+                log_file = '/var/logs/api/instrucoes.log'
+                print(f'Lendo arquivo: {log_file}')
+                if os.path.exists(log_file):
+                    with open(log_file, 'r') as f:
+                        lines = f.readlines()
+                        print(f'Total de transações: {len(lines)}')
+                    print('Fechamento concluído com sucesso!')
+                else:
+                    print('Arquivo de log não encontrado')
+                "
+                echo "=== Fechamento Concluído ==="
+            env:
+            - name: LIQUIDATION_MODE
+              value: "batch"
+            - name: BATCH_SIZE
+              value: "1000"
+            volumeMounts:
+            - name: shared-logs
+              mountPath: /var/logs/api
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          volumes:
+          - name: shared-logs
+            persistentVolumeClaim:
+              claimName: unifiap-logs-pvc
