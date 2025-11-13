@@ -25,7 +25,37 @@ Sistema de pagamentos PIX seguindo as regras do **SPB (Sistema de Pagamentos Bra
 
 ## 2. Execução do Projeto
 
-### Passo 1: Build das Imagens
+### Passo 1: Configuração Local (Docker)
+
+#### Criar Rede Docker Segmentada (Isolamento)
+
+```powershell
+docker network create --driver bridge --subnet 172.25.0.0/24 --gateway 172.25.0.1 unifiap_net
+```
+
+**Resultado:**
+```
+Network ID: 511728b24c125496b47b4ebe78503257cac83754748521de3f9e95c761cf94b1
+Subnet: 172.25.0.0/24
+Gateway: 172.25.0.1
+```
+
+#### Preparar Variáveis de Ambiente
+
+Preencher o arquivo `./docker/.env` com as configurações:
+```bash
+RESERVA_BANCARIA_SALDO=1000000.00
+NETWORK_NAME=unifiap_net
+```
+
+Adicionar arquivo `./docker/pix.key` com chave de simulação:
+```
+123e4567-e89b-12d3-a456-426614174000
+```
+
+---
+
+### Passo 2: Build das Imagens
 
 ```powershell
 cd core/api-pagamentos
@@ -39,7 +69,7 @@ docker build -t renanafs/unifiap-frontend-pix:v1.93744 .
 cd ../..
 ```
 
-### Passo 2: Push para Docker Hub
+### Passo 3: Push para Docker Hub
 
 ```powershell
 docker login
@@ -48,7 +78,7 @@ docker push renanafs/unifiap-auditoria:v1.93744
 docker push renanafs/unifiap-frontend-pix:v1.93744
 ```
 
-### Passo 3: Deploy no Kubernetes
+### Passo 4: Deploy no Kubernetes
 
 ```powershell
 kubectl apply -f k8s/unifiap-pay-spb.yaml
