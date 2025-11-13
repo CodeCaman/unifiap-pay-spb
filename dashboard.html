@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniFIAP Pay SPB - Dashboard de Monitoramento</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 15px;
+        }
+
+        .icon.services { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .icon.monitoring { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .icon.rancher { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .icon.kubernetes { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+        .card-title {
+            font-size: 1.4em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .service-item:hover {
+            background: #e9ecef;
+        }
+
+        .service-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .service-link {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: transform 0.2s ease;
+        }
+
+        .service-link:hover {
+            transform: scale(1.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .command-box {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .architecture {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .arch-diagram {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: #333;
+            overflow-x: auto;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 UniFIAP Pay SPB</h1>
+            <p class="subtitle">Sistema de Pagamentos Instantâneos - Dashboard de Monitoramento</p>
+            <div style="margin-top: 15px;">
+                <span class="status-badge status-active">● Sistema Operacional</span>
+            </div>
+        </header>
+
+        <div class="architecture">
+            <h2 class="section-title">🏗️ Arquitetura do Sistema</h2>
+            <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────┐
+│                  Rancher Management                      │
+│              https://localhost:8443                      │
+│                  admin / unifiap123                      │
+└────────────────────┬────────────────────────────────────┘
+                     │
+        ┌────────────▼─────────────┐
+        │   Kubernetes Cluster     │
+        │    (Docker Desktop)      │
+        │      v1.33.1+k3s1        │
+        └────────────┬─────────────┘
+                     │
+     ┌───────────────┴───────────────┐
+     │                               │
+┌────▼────────┐            ┌────────▼────────┐
+│  UniFIAP    │            │   Monitoring    │
+│  Services   │            │     Stack       │
+├─────────────┤            ├─────────────────┤
+│ API Pag     │            │ Prometheus      │
+│ Auditoria   │            │ Grafana         │
+│ Frontend    │            │ Node Exporter   │
+└─────────────┘            └─────────────────┘
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon services">💳</div>
+                    <div class="card-title">Serviços UniFIAP</div>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Frontend PIX</span>
+                    <a href="http://localhost:30082" target="_blank" class="service-link">Acessar</a>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">API Pagamentos</span>
+                    <a href="http://localhost:30050/docs" target="_blank" class="service-link">Swagger</a>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Auditoria Service</span>
+                    <a href="http://localhost:30051" target="_blank" class="service-link">Status</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon monitoring">📊</div>
+                    <div class="card-title">Monitoramento</div>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Grafana</span>
+                    <a href="http://localhost:30300" target="_blank" class="service-link">Dashboard</a>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Prometheus</span>
+                    <a href="http://localhost:30090" target="_blank" class="service-link">Métricas</a>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Node Exporter</span>
+                    <span style="color: #666; font-size: 0.9em;">Porta 30100</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon rancher">🐮</div>
+                    <div class="card-title">Gerenciamento</div>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Rancher</span>
+                    <a href="https://localhost:8443" target="_blank" class="service-link">Abrir</a>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Cluster Local</span>
+                    <span class="status-badge status-active">Active</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">docker-desktop</span>
+                    <span class="status-badge status-active">Active</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon kubernetes">☸️</div>
+                    <div class="card-title">Kubernetes</div>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Namespace</span>
+                    <span style="color: #667eea; font-weight: 600;">unifiapay</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Total de Pods</span>
+                    <span style="color: #667eea; font-weight: 600;">6 Running</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Services</span>
+                    <span style="color: #667eea; font-weight: 600;">6 NodePort</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2 class="section-title">📋 Informações do Sistema</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Kubernetes Version</div>
+                    <div class="info-value">v1.33.1+k3s1</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Rancher Version</div>
+                    <div class="info-value">v2.12.3</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Python Version</div>
+                    <div class="info-value">3.11</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Saldo Reserva BACEN</div>
+                    <div class="info-value">R$ 1.000.000,00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2 class="section-title">🧪 Testar Sistema PIX</h2>
+            <p style="margin-bottom: 15px; color: #666;">Execute o comando abaixo para testar uma transação PIX:</p>
+            <div class="command-box">
+curl -X POST http://localhost:30050/pix \
+  -H "Content-Type: application/json" \
+  -d '{"chave_pix":"11888888888","valor":10.50,"descricao":"Teste sistema"}'
+            </div>
+            <p style="margin-top: 15px; color: #666;">Ou use o arquivo de teste:</p>
+            <div class="command-box">
+curl -X POST http://localhost:30050/pix \
+  -H "Content-Type: application/json" \
+  -d @test-pix.json
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2 class="section-title">🔧 Comandos Úteis</h2>
+            <p style="margin-bottom: 15px; color: #666;"><strong>Ver status dos pods:</strong></p>
+            <div class="command-box">kubectl get pods -n unifiapay</div>
+            
+            <p style="margin: 15px 0; color: #666;"><strong>Ver logs da API:</strong></p>
+            <div class="command-box">kubectl logs -n unifiapay -l app=api-pagamentos-simple --tail 50</div>
+            
+            <p style="margin: 15px 0; color: #666;"><strong>Ver logs da Auditoria:</strong></p>
+            <div class="command-box">kubectl logs -n unifiapay -l app=auditoria-simple --tail 50</div>
+            
+            <p style="margin: 15px 0; color: #666;"><strong>Reiniciar serviços:</strong></p>
+            <div class="command-box">kubectl rollout restart deployment -n unifiapay</div>
+        </div>
+
+        <div class="info-section">
+            <h2 class="section-title">📚 Credenciais de Acesso</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Rancher</div>
+                    <div class="info-value">admin / unifiap123</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Grafana</div>
+                    <div class="info-value">admin / admin</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Namespace K8s</div>
+                    <div class="info-value">unifiapay</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Cluster Name</div>
+                    <div class="info-value">docker-desktop</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🎓 UniFIAP Pay SPB - FIAP Pós Tech Software Architecture</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">Sistema de Pagamentos Instantâneos Integrado com SPB</p>
+        </footer>
+    </div>
+</body>
+</html>

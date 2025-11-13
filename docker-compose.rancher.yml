@@ -1,0 +1,22 @@
+services:
+  rancher:
+    image: rancher/rancher:latest
+    container_name: unifiap-rancher
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - CATTLE_BOOTSTRAP_PASSWORD=unifiap123
+    volumes:
+      - rancher_data:/var/lib/rancher
+    labels:
+      - "unifiap.service=rancher"
+      - "unifiap.environment=production"
+
+volumes:
+  rancher_data:
+    driver: local
+    labels:
+      - "unifiap.volume=rancher-data"

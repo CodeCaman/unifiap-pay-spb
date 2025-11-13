@@ -1,0 +1,98 @@
+groups:
+  - name: unifiap_spb_alerts
+    rules:
+      # Alerta quando API está offline
+      - alert: APIOffline
+        expr: up{job="api-pagamentos"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: api-pagamentos
+          system: spb
+        annotations:
+          summary: "API de Pagamentos UniFIAP está offline"
+          description: "A API de Pagamentos do sistema SPB está inacessível há {{ $value }} segundos."
+
+      # Alerta de alta latência
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket{job="api-pagamentos"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: api-pagamentos
+          system: spb
+        annotations:
+          summary: "Alta latência detectada na API de Pagamentos"
+          description: "P95 da latência está em {{ $value }}s, acima do limite de 0.5s."
+
+      # Alerta de alta taxa de erro
+      - alert: HighErrorRate
+        expr: (rate(flask_http_request_total{status=~"4..|5.."}[5m]) / rate(flask_http_request_total[5m])) * 100 > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: api-pagamentos
+          system: spb
+        annotations:
+          summary: "Alta taxa de erro no sistema SPB"
+          description: "Taxa de erro está em {{ $value }}%, acima do limite de 5%."
+
+      # Alerta de alto uso de CPU
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{name=~".*api-pagamentos.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: container
+          system: spb
+        annotations:
+          summary: "Alto uso de CPU no container da API"
+          description: "Uso de CPU está em {{ $value }}%, acima do limite de 80%."
+
+      # Alerta de alto uso de memória
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes{name=~".*api-pagamentos.*"} / container_spec_memory_limit_bytes{name=~".*api-pagamentos.*"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: container
+          system: spb
+        annotations:
+          summary: "Alto uso de memória no container da API"
+          description: "Uso de memória está em {{ $value }}%, acima do limite de 90%."
+
+      # Alerta de reserva bancária baixa
+      - alert: LowBankReserve
+        expr: unifiap_reserva_bancaria_saldo < 100000
+        for: 1m
+        labels:
+          severity: critical
+          service: banking
+          system: spb
+        annotations:
+          summary: "Reserva bancária crítica no SPB"
+          description: "Reserva bancária está em R$ {{ $value }}, abaixo do limite mínimo de R$ 100.000."
+
+      # Alerta quando serviço de auditoria está offline
+      - alert: AuditoriaServiceOffline
+        expr: up{job="auditoria-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: auditoria-service
+          system: spb
+        annotations:
+          summary: "Serviço de Auditoria SPB está offline"
+          description: "O serviço de auditoria do sistema SPB está inacessível há {{ $value }} segundos."
+
+      # Alerta quando frontend está offline
+      - alert: FrontendOffline
+        expr: up{job="frontend-pix"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: frontend-pix
+          system: spb
+        annotations:
+          summary: "Frontend PIX está offline"
+          description: "A interface web do PIX está inacessível há {{ $value }} segundos."

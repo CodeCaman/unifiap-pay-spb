@@ -1,0 +1,246 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "UniFIAP Pay SPB - Sistema Completo",
+    "tags": ["unifiap", "spb", "pix", "monitoramento"],
+    "timezone": "America/Sao_Paulo",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Status dos Containers",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up",
+            "format": "time_series",
+            "legendFormat": "{{ job }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "text": "UP"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "CPU Usage por Container",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total[1m]) * 100",
+            "format": "time_series",
+            "legendFormat": "{{ name }}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "CPU %",
+            "max": 100,
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Memória por Container",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes / 1024 / 1024",
+            "format": "time_series",
+            "legendFormat": "{{ name }}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Memory (MB)",
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Network I/O",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_network_receive_bytes_total[1m])",
+            "format": "time_series",
+            "legendFormat": "{{ name }} RX"
+          },
+          {
+            "expr": "rate(container_network_transmit_bytes_total[1m])",
+            "format": "time_series",
+            "legendFormat": "{{ name }} TX"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Bytes/s",
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Transações PIX Processadas",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "flask_http_request_total{endpoint='/pix'}",
+            "format": "time_series",
+            "legendFormat": "Total PIX"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "red",
+                  "value": 100
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 16
+        }
+      },
+      {
+        "id": 6,
+        "title": "Tempo de Resposta API",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "flask_http_request_duration_seconds_sum / flask_http_request_duration_seconds_count",
+            "format": "time_series",
+            "legendFormat": "Avg Response Time"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 16
+        }
+      },
+      {
+        "id": 7,
+        "title": "Status HTTP Responses",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "flask_http_request_total",
+            "format": "time_series",
+            "legendFormat": "{{ status }}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        }
+      }
+    ],
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "refresh": "5s",
+    "schemaVersion": 27,
+    "version": 1
+  }
+}

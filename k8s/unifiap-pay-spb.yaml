@@ -1,0 +1,546 @@
+# UniFIAP Pay SPB - Deployment completo integrado com Rancher
+# Todas as aplicações em um arquivo único para deploy completo
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: unifiapay
+  labels:
+    name: unifiapay
+    project: unifiap-pay-spb
+    environment: development
+    # Labels específicas para integração com Rancher
+    cattle.io/creator: user-admin
+    field.cattle.io/projectId: p-local
+  annotations:
+    field.cattle.io/creatorId: user-admin
+    field.cattle.io/projectId: local
+    lifecycle.cattle.io/create.namespace-auth: "true"
+
+---
+# ConfigMap para configurações globais
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unifiap-config
+  namespace: unifiapay
+  labels:
+    app: unifiap-pay-spb
+    component: config
+data:
+  DATABASE_URL: "sqlite:///app/database.db"
+  API_BASE_URL: "http://api-pagamentos-simple-service:5000"
+  AUDITORIA_URL: "http://auditoria-simple-service:5001"
+  PYTHONPATH: "/app"
+  ENVIRONMENT: "development"
+
+---
+# Secret para credenciais
+apiVersion: v1
+kind: Secret
+metadata:
+  name: unifiap-secrets
+  namespace: unifiapay
+  labels:
+    app: unifiap-pay-spb
+    component: secrets
+type: Opaque
+data:
+  # admin:admin em base64
+  ADMIN_USER: YWRtaW4=
+  ADMIN_PASS: YWRtaW4=
+
+---
+# Persistent Volume para logs compartilhados
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: unifiap-logs-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /tmp/unifiap-logs
+
+---
+# Persistent Volume Claim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: unifiap-logs-pvc
+  namespace: unifiapay
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# API Pagamentos Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-pagamentos-simple
+  namespace: unifiapay
+  labels:
+    app: api-pagamentos
+    component: backend
+    tier: api
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-pagamentos
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: api-pagamentos
+        component: backend
+        tier: api
+        version: v1
+    spec:
+      containers:
+      - name: api-pagamentos
+        image: codecaman/api-pagamentos:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: PYTHONPATH
+          valueFrom:
+            configMapKeyRef:
+              name: unifiap-config
+              key: PYTHONPATH
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: unifiap-config
+              key: DATABASE_URL
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /var/logs/api
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: unifiap-logs-pvc
+
+---
+# API Pagamentos Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-pagamentos-simple-service
+  namespace: unifiapay
+  labels:
+    app: api-pagamentos
+    component: backend
+spec:
+  type: NodePort
+  selector:
+    app: api-pagamentos
+    component: backend
+  ports:
+  - port: 5000
+    targetPort: 5000
+    nodePort: 30050
+    name: http
+
+---
+# Auditoria Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auditoria-simple
+  namespace: unifiapay
+  labels:
+    app: auditoria-service
+    component: backend
+    tier: audit
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auditoria-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: auditoria-service
+        component: backend
+        tier: audit
+        version: v1
+    spec:
+      containers:
+      - name: auditoria-service
+        image: codecaman/auditoria-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5001
+          name: http
+        env:
+        - name: PYTHONPATH
+          valueFrom:
+            configMapKeyRef:
+              name: unifiap-config
+              key: PYTHONPATH
+        - name: API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: unifiap-config
+              key: API_BASE_URL
+        - name: LIQUIDATION_MODE
+          value: "continuous"
+        - name: MONITORING_INTERVAL
+          value: "15"
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /var/logs/api
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: unifiap-logs-pvc
+
+---
+# Auditoria Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: auditoria-simple-service
+  namespace: unifiapay
+  labels:
+    app: auditoria-service
+    component: backend
+spec:
+  type: NodePort
+  selector:
+    app: auditoria-service
+    component: backend
+  ports:
+  - port: 5001
+    targetPort: 5001
+    nodePort: 30051
+    name: http
+
+---
+# Frontend PIX Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-pix-simple
+  namespace: unifiapay
+  labels:
+    app: frontend-pix
+    component: frontend
+    tier: web
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-pix
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend-pix
+        component: frontend
+        tier: web
+        version: v1
+    spec:
+      containers:
+      - name: frontend-pix
+        image: codecaman/frontend-pix:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+# Frontend PIX Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-pix-simple-service
+  namespace: unifiapay
+  labels:
+    app: frontend-pix
+    component: frontend
+spec:
+  type: NodePort
+  selector:
+    app: frontend-pix
+    component: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30082
+    name: http
+
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: unifiapay
+  labels:
+    app: prometheus
+    component: monitoring
+    tier: metrics
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+      component: monitoring
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        component: monitoring
+        tier: metrics
+        version: v1
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+          name: http
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus/'
+          - '--web.console.libraries=/etc/prometheus/console_libraries'
+          - '--web.console.templates=/etc/prometheus/consoles'
+          - '--web.enable-lifecycle'
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: unifiapay
+  labels:
+    app: prometheus
+    component: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: prometheus
+    component: monitoring
+  ports:
+  - port: 9090
+    targetPort: 9090
+    nodePort: 30090
+    name: http
+
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: unifiapay
+  labels:
+    app: grafana
+    component: monitoring
+    tier: visualization
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+      component: monitoring
+  template:
+    metadata:
+      labels:
+        app: grafana
+        component: monitoring
+        tier: visualization
+        version: v1
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: unifiap-secrets
+              key: ADMIN_USER
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: unifiap-secrets
+              key: ADMIN_PASS
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  namespace: unifiapay
+  labels:
+    app: grafana
+    component: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: grafana
+    component: monitoring
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30300
+    name: http
+
+---
+# Node Exporter Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-exporter
+  namespace: unifiapay
+  labels:
+    app: node-exporter
+    component: monitoring
+    tier: metrics
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-exporter
+      component: monitoring
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+        component: monitoring
+        tier: metrics
+        version: v1
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:latest
+        ports:
+        - containerPort: 9100
+          name: http
+        args:
+          - '--path.procfs=/host/proc'
+          - '--path.rootfs=/host/root'
+          - '--path.sysfs=/host/sys'
+          - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: root
+          mountPath: /host/root
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: root
+        hostPath:
+          path: /
+
+---
+# Node Exporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter-service
+  namespace: unifiapay
+  labels:
+    app: node-exporter
+    component: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: node-exporter
+    component: monitoring
+  ports:
+  - port: 9100
+    targetPort: 9100
+    nodePort: 30100
+    name: http

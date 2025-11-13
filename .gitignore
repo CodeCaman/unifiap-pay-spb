@@ -1,0 +1,78 @@
+# .gitignore para o projeto UniFIAP Pay SPB
+
+# Arquivos de ambiente
+.env
+*.env
+!.env.example
+
+# Logs
+*.log
+logs/
+/var/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+ENV/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Kubernetes
+*.kubeconfig
+
+# Rancher volumes (caminhos muito longos)
+rancher-setup/volumes/
+
+# Evidências (imagens grandes)
+docs/etapa*/screenshots/
+docs/etapa*/*.png
+docs/etapa*/*.jpg
+docs/etapa*/*.gif
+
+# Backup files
+*.backup
+*.bak
+README.backup.md
+README_CLEAN.md
+
+# Temporary files
+*.tmp
+*.temp
