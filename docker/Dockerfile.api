@@ -1,0 +1,50 @@
+# Estágio 1: Build
+FROM python:3.11-slim as builder
+
+WORKDIR /build
+
+# Instalar dependências de compilação
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements
+COPY src/api/requirements.txt .
+
+# Instalar dependências Python
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Estágio 2: Runtime
+FROM python:3.11-slim
+
+# Criar usuário não-root
+RUN useradd -m -u 1000 appuser
+
+WORKDIR /app
+
+# Copiar dependências do builder
+COPY --from=builder /root/.local /home/appuser/.local
+
+# Copiar aplicação
+COPY src/api/ .
+
+# Configurar permissões
+RUN chown -R appuser:appuser /app && \
+    chmod -R 755 /app
+
+# Criar diretório de logs
+RUN mkdir -p /var/logs/api /data && \
+    chown -R appuser:appuser /var/logs/api /data
+
+# Configurar PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+# Trocar para usuário não-root
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["python", "app.py"]

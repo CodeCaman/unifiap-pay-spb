@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-pagamentos
+  namespace: unifiapay
+  labels:
+    app: api-pagamentos
+    version: v1.555354
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api-pagamentos
+  template:
+    metadata:
+      labels:
+        app: api-pagamentos
+        version: v1.555354
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: unifiapay-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: api-pagamentos
+        image: codecaman/api-pagamentos:v1.555354
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: RESERVA_BANCARIA_SALDO
+          valueFrom:
+            configMapKeyRef:
+              name: unifiapay-config
+              key: RESERVA_BANCARIA_SALDO
+        - name: API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: unifiapay-config
+              key: API_PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: unifiapay-config
+              key: LOG_LEVEL
+        - name: PIX_KEY
+          valueFrom:
+            secretKeyRef:
+              name: unifiapay-secrets
+              key: pix-key
+        - name: API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: unifiapay-secrets
+              key: api-token
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /var/logs/api
+        - name: data
+          mountPath: /data
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: unifiapay-logs-pvc
+      - name: data
+        persistentVolumeClaim:
+          claimName: unifiapay-data-pvc
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - api-pagamentos
+              topologyKey: kubernetes.io/hostname

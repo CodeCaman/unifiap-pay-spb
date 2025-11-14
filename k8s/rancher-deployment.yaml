@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rancher
+  namespace: cattle-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rancher
+  template:
+    metadata:
+      labels:
+        app: rancher
+    spec:
+      containers:
+      - name: rancher
+        image: rancher/rancher:v2.7.13
+        ports:
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        env:
+        - name: CATTLE_BOOTSTRAP_PASSWORD
+          value: "unifiapay555354"
+        - name: CATTLE_SYSTEM_DOMAIN
+          value: "rancher.local"
+        volumeMounts:
+        - name: rancher-data
+          mountPath: /var/lib/rancher
+      volumes:
+      - name: rancher-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rancher
+  namespace: cattle-system
+spec:
+  selector:
+    app: rancher
+  ports:
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+  type: ClusterIP
